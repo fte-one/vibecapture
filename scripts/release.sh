@@ -6,11 +6,12 @@
 #
 # Steps: universal build with Developer ID signature -> DMG -> notarization and stapling ->
 # Sparkle appcast signed with the EdDSA key from the keychain -> GitHub release with
-# Record-Everything-<version>.dmg, Record-Everything.dmg (stable download link) and appcast.xml.
+# VibeCapture-<version>.dmg, VibeCapture.dmg (stable download link) and appcast.xml.
 # The installed apps read .../releases/latest/download/appcast.xml and update themselves.
 #
 #   NOTARY_PROFILE=...  notarytool keychain profile (default: crispyflow-notary, same Apple team)
-#   SPARKLE_ACCOUNT=... keychain account of the Sparkle key (default: record-everything)
+#   SPARKLE_ACCOUNT=... keychain account of the Sparkle key (default: record-everything – VibeCapture
+#                       shares the EdDSA key of Record Everything; SUPublicEDKey in Info.plist matches it)
 #   SKIP_NOTARIZE=1     local test: stop after the signed DMG, never publishes
 #   PUBLISH=0           build, notarize and write the appcast, but do not publish
 #   YES=1               publish without asking
@@ -18,11 +19,11 @@ set -euo pipefail
 
 ROOT="${0:A:h:h}"
 cd "$ROOT"
-REPO="fte-one/record-everything"
+REPO="fte-one/vibecapture"
 PLIST="Support/Info.plist"
 NOTARY_PROFILE="${NOTARY_PROFILE:-crispyflow-notary}"
 SPARKLE_ACCOUNT="${SPARKLE_ACCOUNT:-record-everything}"
-APP="$ROOT/build/Record Everything.app"
+APP="$ROOT/build/VibeCapture.app"
 DIST="$ROOT/dist"
 PB=/usr/libexec/PlistBuddy
 
@@ -34,7 +35,7 @@ if [[ -n "${1:-}" ]]; then
 fi
 VERSION="$($PB -c 'Print :CFBundleShortVersionString' "$PLIST")"
 BUILD="$($PB -c 'Print :CFBundleVersion' "$PLIST")"
-DMG="$DIST/Record-Everything-$VERSION.dmg"
+DMG="$DIST/VibeCapture-$VERSION.dmg"
 
 if [[ -z "${SKIP_NOTARIZE:-}" && "${PUBLISH:-1}" != "0" ]] && gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
   echo "Release v$VERSION already exists on GitHub. Pass a new version: ./scripts/release.sh <version>" >&2
@@ -55,10 +56,10 @@ mkdir -p "$DIST"
 STAGING="$(mktemp -d)"
 APPCAST_DIR="$(mktemp -d)"
 trap 'rm -rf "$STAGING" "$APPCAST_DIR"' EXIT
-ditto "$APP" "$STAGING/Record Everything.app"
+ditto "$APP" "$STAGING/VibeCapture.app"
 ln -s /Applications "$STAGING/Applications"
 rm -f "$DMG"
-hdiutil create -volname "Record Everything" -srcfolder "$STAGING" -ov -format UDZO "$DMG" >/dev/null
+hdiutil create -volname "VibeCapture" -srcfolder "$STAGING" -ov -format UDZO "$DMG" >/dev/null
 codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
 
 if [[ -n "${SKIP_NOTARIZE:-}" ]]; then
@@ -91,7 +92,7 @@ cp "$DMG" "$APPCAST_DIR/"
   --link "https://github.com/$REPO" \
   "$APPCAST_DIR"
 cp "$APPCAST_DIR/appcast.xml" "$DIST/appcast.xml"
-cp "$DMG" "$DIST/Record-Everything.dmg"
+cp "$DMG" "$DIST/VibeCapture.dmg"
 
 if [[ "${PUBLISH:-1}" == "0" ]]; then
   echo "Release built, not published: $DMG, $DIST/appcast.xml"
@@ -115,7 +116,7 @@ NOTES="$ROOT/release-notes/$VERSION.md"
 NOTES_ARGS=(--generate-notes)
 [[ -f "$NOTES" ]] && NOTES_ARGS=(--notes-file "$NOTES")
 gh release create "v$VERSION" --repo "$REPO" --target "$(git rev-parse HEAD)" \
-  --title "Record Everything $VERSION" "${NOTES_ARGS[@]}" \
-  "$DMG" "$DIST/Record-Everything.dmg" "$DIST/appcast.xml"
+  --title "VibeCapture $VERSION" "${NOTES_ARGS[@]}" \
+  "$DMG" "$DIST/VibeCapture.dmg" "$DIST/appcast.xml"
 echo "Published: https://github.com/$REPO/releases/tag/v$VERSION"
-echo "Download:  https://github.com/$REPO/releases/latest/download/Record-Everything.dmg"
+echo "Download:  https://github.com/$REPO/releases/latest/download/VibeCapture.dmg"

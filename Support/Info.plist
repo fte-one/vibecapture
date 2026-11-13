@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Record Everything</string>
+	<string>VibeCapture</string>
 	<key>CFBundleExecutable</key>
-	<string>RecordEverything</string>
+	<string>VibeCapture</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.otark.recordeverything</string>
+	<string>one.fte.vibecapture</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleLocalizations</key>
@@ -20,31 +20,31 @@
 		<string>de</string>
 	</array>
 	<key>CFBundleName</key>
-	<string>Record Everything</string>
+	<string>VibeCapture</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6.1</string>
+	<string>1.0.0</string>
 	<key>CFBundleVersion</key>
-	<string>12</string>
+	<string>1</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Record Everything uses the camera to record your webcam.</string>
+	<string>VibeCapture uses the camera to record your webcam.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 fte.one c/o OK Venture GmbH. All rights reserved.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record Everything uses the microphone to record your voice.</string>
+	<string>VibeCapture uses the microphone to record your voice.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://github.com/fte-one/record-everything/releases/latest/download/appcast.xml</string>
+	<string>https://github.com/fte-one/vibecapture/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>aYzK1ais2KimC4i+MekGT6CFToRnrC5QiJWoiekn0+A=</string>
 	<key>SUScheduledCheckInterval</key>

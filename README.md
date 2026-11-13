@@ -1,11 +1,16 @@
 <img src="Resources/AppIcon.png" width="128" align="right" alt="App-Icon">
 
-# Record Everything
+# VibeCapture
 
-Bildschirm-, Webcam- und Audiorekorder für macOS: Bereich oder Fenster aufziehen, Ton von System und
-Mikrofon mitschneiden, Aufnahmen in einer Bibliothek verwalten, abspielen und schneiden.
+Screenshots, Sprache und Feedback-Sessions für Vibe Coding auf dem Mac: Bereich aufziehen, markieren,
+diktieren und direkt in Claude, Codex oder T3 Code einfügen; Fenster durchklicken und erzählen, daraus
+einen Prompt mit nummerierten Screenshots machen; dazu Bildschirm-, Webcam- und Audioaufnahme.
 
-**Download:** [Record-Everything.dmg](https://github.com/fte-one/record-everything/releases/latest/download/Record-Everything.dmg)
+Hervorgegangen aus [Record Everything](https://github.com/fte-one/record-everything) (eigene App mit
+eigener Kennung `one.fte.vibecapture`, eigenen Einstellungen und Ordnern; beide laufen unabhängig).
+Website: [vibecapture.app](https://vibecapture.app)
+
+**Download:** [VibeCapture.dmg](https://github.com/fte-one/vibecapture/releases/latest/download/VibeCapture.dmg)
 (neueste Version, signiert und notarisiert). Die App aktualisiert sich danach selbst.
 
 ## Funktionen
@@ -93,7 +98,7 @@ Mikrofon mitschneiden, Aufnahmen in einer Bibliothek verwalten, abspielen und sc
 Technik: ScreenCaptureKit für Bild und Systemton, AVCaptureSession für Kamera und Mikrofon,
 AVAssetWriter mit H.264 (High, CABAC, Keyframe alle 2 s, Bitrate B × H × FPS × 0,08) und AAC 48 kHz.
 Pausen werden über Zeitstempel-Versatz herausgeschnitten; System- und Mikrofonton landen in getrennten
-Spuren und werden beim Stoppen zu einer Spur gerendert (Stimme angehoben, Systemton geduckt). Aufnahmen landen in `~/Movies/Record Everything`.
+Spuren und werden beim Stoppen zu einer Spur gerendert (Stimme angehoben, Systemton geduckt). Aufnahmen landen in `~/Movies/VibeCapture`.
 
 ## Voraussetzungen
 
@@ -106,7 +111,7 @@ Spuren und werden beim Stoppen zu einer Spur gerendert (Stimme angehoben, System
 ./scripts/build-app.sh
 ```
 
-Das Ergebnis liegt in `build/Record Everything.app`. Beim ersten Build lädt `scripts/fetch-sparkle.sh`
+Das Ergebnis liegt in `build/VibeCapture.app`. Beim ersten Build lädt `scripts/fetch-sparkle.sh`
 das Update-Framework Sparkle (Version fest eingestellt) nach `Vendor/`. Varianten:
 
 ```bash
@@ -125,7 +130,7 @@ Hinweise zur Toolchain:
 ## Signieren und Veröffentlichen
 
 `build-app.sh` signiert automatisch mit der ersten „Developer ID Application“-Identität im
-Schlüsselbund, mit Hardened Runtime und den Entitlements aus `Support/RecordEverything.entitlements`
+Schlüsselbund, mit Hardened Runtime und den Entitlements aus `Support/VibeCapture.entitlements`
 (Kamera und Mikrofon), Sparkle von innen nach außen. Eine feste Identität sorgt dafür, dass macOS die
 Freigaben für Bildschirmaufnahme und Mikrofon über Neubauten hinweg behält.
 
@@ -142,9 +147,9 @@ Das Skript
 3. notarisiert die DMG über `notarytool` (Schlüsselbund-Profil `NOTARY_PROFILE`, Standard
    `crispyflow-notary`) und heftet die Tickets an App und DMG,
 4. erzeugt `appcast.xml`, signiert mit dem EdDSA-Schlüssel aus dem Schlüsselbund (Konto
-   `record-everything`),
+   `record-everything`, gemeinsam mit Record Everything),
 5. fragt nach, committet die Version, pusht und legt das GitHub-Release `v<Version>` an mit
-   `Record-Everything-<Version>.dmg`, `Record-Everything.dmg` (fester Download-Link) und `appcast.xml`.
+   `VibeCapture-<Version>.dmg`, `VibeCapture.dmg` (fester Download-Link) und `appcast.xml`.
 
 Release-Notizen werden aus den Commits erzeugt, oder aus `release-notes/<Version>.md`, falls vorhanden.
 Weitere Schalter: `PUBLISH=0` (nicht veröffentlichen), `YES=1` (ohne Rückfrage), `SKIP_NOTARIZE=1`
@@ -157,7 +162,7 @@ und in App Store Connect akzeptieren.
 ### Wie die Updates funktionieren
 
 Die App liest `SUFeedURL` aus der Info.plist:
-`https://github.com/fte-one/record-everything/releases/latest/download/appcast.xml`. GitHub leitet
+`https://github.com/fte-one/vibecapture/releases/latest/download/appcast.xml`. GitHub leitet
 `latest` immer auf das neueste Release um, dessen Appcast auf die DMG dieses Releases zeigt. Sparkle
 prüft vor der Installation die EdDSA-Signatur gegen `SUPublicEDKey` und die Developer-ID-Signatur der
 neuen App. Das Repo muss dafür öffentlich sein.
@@ -168,14 +173,14 @@ neuen App. Das Repo muss dafür öffentlich sein.
 > (Datei an einem sicheren Ort aufbewahren, nicht ins Repo).
 
 Test ohne GitHub: einen lokalen Appcast bereitstellen und die App mit
-`open "build/Record Everything.app" --args -RecordEverythingFeedURL http://127.0.0.1:8765/appcast.xml`
+`open "build/VibeCapture.app" --args -VibeCaptureFeedURL http://127.0.0.1:8765/appcast.xml`
 starten.
 
 ## Hochladen einrichten (Cloudflare R2)
 
 1. Im Cloudflare-Dashboard unter **R2 › API-Tokens verwalten** ein Token mit „Object Read & Write“ für
    den Bucket anlegen. Es liefert Access Key ID und Secret Access Key.
-2. In Record Everything: **Einstellungen › Hochladen**: Account-ID, Bucket, die beiden Schlüssel und die
+2. In VibeCapture: **Einstellungen › Hochladen**: Account-ID, Bucket, die beiden Schlüssel und die
    öffentliche URL eintragen, unter der die Dateien des Buckets erreichbar sind (z. B. eine eigene Domain
    oder die `r2.dev`-Adresse des Buckets, etwa `https://example.com/files/`), dann
    „Sichern & Verbindung testen“. Ab Werk ist nichts vorbelegt.
@@ -198,29 +203,29 @@ Beim ersten Start fragt macOS nach:
 Prüft die Aufnahme-Engine ohne Bedienung und schreibt Ergebnis und Metadaten als JSON:
 
 ```bash
-open "build/Record Everything.app" --args -RecordEverythingSelfTest screen -RecordEverythingSelfTestOutput /tmp/result.json
+open "build/VibeCapture.app" --args -VibeCaptureSelfTest screen -VibeCaptureSelfTestOutput /tmp/result.json
 ```
 
 Modi: `screen`, `region`, `pause`, `audio`, `screenshot`, `upload`, `files`, `drop`, `drophint`, `annotate`,
-`annotatecopy`, `paste`, `feedback` (ganze Session auf einem Fenster von `-RecordEverythingTestPasteApp`
-mit `-RecordEverythingTestFeedbackAudio <WAV>`, `-RecordEverythingTestOpenRouterBase`, `-RecordEverythingTestFeedbackOutput`;
+`annotatecopy`, `paste`, `feedback` (ganze Session auf einem Fenster von `-VibeCaptureTestPasteApp`
+mit `-VibeCaptureTestFeedbackAudio <WAV>`, `-VibeCaptureTestOpenRouterBase`, `-VibeCaptureTestFeedbackOutput`;
 mit `open -n` starten, damit die Bildschirmfreigabe der App gilt), `frozen` (Bereich aus dem eingefrorenen Bildschirm, mit
-`-RecordEverythingTestPasteApp`), `note` (⌘V in die Notiz, Sprachbefehle; mit `-RecordEverythingTestAudio <WAV>` und
-`-RecordEverythingTestOpenRouterBase` (z. B. `http://127.0.0.1:8799/api/v1`) auch die Transkription gegen einen Ersatz-Server),
+`-VibeCaptureTestPasteApp`), `note` (⌘V in die Notiz, Sprachbefehle; mit `-VibeCaptureTestAudio <WAV>` und
+`-VibeCaptureTestOpenRouterBase` (z. B. `http://127.0.0.1:8799/api/v1`) auch die Transkription gegen einen Ersatz-Server),
 `popover`, `preview`,
-`settings`, `voicemix` (Ton einer vorhandenen Datei rendern: `-RecordEverythingSelfTestInput <Datei>`,
-`-RecordEverythingSelfTestTracks system,microphone`; schreibt eine Kopie);
-`-RecordEverythingSelfTestMic YES` nimmt das Mikrofon mit auf. `upload`, `files` (Datei mit Umlauten, Ordner
+`settings`, `voicemix` (Ton einer vorhandenen Datei rendern: `-VibeCaptureSelfTestInput <Datei>`,
+`-VibeCaptureSelfTestTracks system,microphone`; schreibt eine Kopie);
+`-VibeCaptureSelfTestMic YES` nimmt das Mikrofon mit auf. `upload`, `files` (Datei mit Umlauten, Ordner
 als ZIP, 3-MB-Datei, abgebrochener Upload) und `drop` (Datei und Ordner auf dem Menüleisten-Symbol und auf
-der Ablagefläche abgelegt) brauchen einen Test-Endpunkt (`-RecordEverythingTestEndpoint`, `-RecordEverythingTestBucket`,
-`-RecordEverythingTestPublic`, `-RecordEverythingTestAccessKey`, `-RecordEverythingTestSecret`) und lassen
+der Ablagefläche abgelegt) brauchen einen Test-Endpunkt (`-VibeCaptureTestEndpoint`, `-VibeCaptureTestBucket`,
+`-VibeCaptureTestPublic`, `-VibeCaptureTestAccessKey`, `-VibeCaptureTestSecret`) und lassen
 Zwischenablage und Verlauf unverändert. `drophint` zeichnet die Ablagefläche (wartend und zum
 Loslassen) und den Fortschritt mit „Abbrechen“ als Bilder.
 
 ## Aufbau
 
 ```
-Sources/RecordEverything/
+Sources/VibeCapture/
   App/        Start, Menüs, Koordinator, Einstellungen, Hotkeys, Fensterverwaltung, Updater, Selbsttest
   Capture/    Recorder, ScreenCaptureKit-Stream, Kamera, Mikrofon, AVAssetWriter, Ton-Mix
   Upload/     S3-Client (SigV4), Upload-Ablauf und Verlauf, Schlüsselbund, Bildschirmfotos, Einblendungen

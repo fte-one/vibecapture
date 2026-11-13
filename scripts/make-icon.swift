@@ -1,9 +1,12 @@
-// Draws the Record Everything app icon and writes Resources/AppIcon.icns (+ AppIcon.png preview).
+// Draws the VibeCapture app icon and writes Resources/AppIcon.icns (+ AppIcon.png preview).
 // Usage: scripts/make-icon.sh
 import AppKit
 
-let brandTop = NSColor(srgbRed: 0.27, green: 0.86, blue: 0.56, alpha: 1)      // #45DB8F
-let brandBottom = NSColor(srgbRed: 0.05, green: 0.58, blue: 0.37, alpha: 1)   // #0D945E
+// Vibe gradient: violet → pink → orange.
+let violet = NSColor(srgbRed: 0.42, green: 0.25, blue: 0.95, alpha: 1)   // #6B40F2
+let pink = NSColor(srgbRed: 0.93, green: 0.25, blue: 0.62, alpha: 1)     // #ED409E
+let orange = NSColor(srgbRed: 0.99, green: 0.55, blue: 0.22, alpha: 1)   // #FC8C38
+let brandBottom = pink
 
 func drawIcon(size: CGFloat) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size), pixelsHigh: Int(size), bitsPerSample: 8,
@@ -28,8 +31,8 @@ func drawIcon(size: CGFloat) -> NSBitmapImageRep {
     ctx.addPath(shape)
     ctx.clip()
     let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB),
-                              colors: [brandTop.cgColor, brandBottom.cgColor] as CFArray, locations: [0, 1])!
-    ctx.drawLinearGradient(gradient, start: CGPoint(x: 512, y: 924), end: CGPoint(x: 512, y: 100), options: [])
+                              colors: [violet.cgColor, pink.cgColor, orange.cgColor] as CFArray, locations: [0, 0.55, 1])!
+    ctx.drawLinearGradient(gradient, start: CGPoint(x: 100, y: 924), end: CGPoint(x: 924, y: 100), options: [])
     // Soft light from the top.
     let glow = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB),
                           colors: [NSColor.white.withAlphaComponent(0.28).cgColor, NSColor.white.withAlphaComponent(0).cgColor] as CFArray,
@@ -57,12 +60,18 @@ func drawIcon(size: CGFloat) -> NSBitmapImageRep {
     }
     ctx.strokePath()
 
-    // Record dot: white ring with a filled center.
+    // Voice wave in the middle: what you say goes along with what you capture.
     let center = CGPoint(x: frame.midX, y: frame.midY)
-    ctx.setLineWidth(30)
-    ctx.strokeEllipse(in: CGRect(x: center.x - 118, y: center.y - 118, width: 236, height: 236))
+    let heights: [CGFloat] = [96, 196, 290, 196, 96]
+    let barWidth: CGFloat = 44, gap: CGFloat = 30
+    let total = CGFloat(heights.count) * barWidth + CGFloat(heights.count - 1) * gap
     ctx.setFillColor(NSColor.white.cgColor)
-    ctx.fillEllipse(in: CGRect(x: center.x - 72, y: center.y - 72, width: 144, height: 144))
+    for (i, h) in heights.enumerated() {
+        let x = center.x - total / 2 + CGFloat(i) * (barWidth + gap)
+        let bar = CGRect(x: x, y: center.y - h / 2, width: barWidth, height: h)
+        ctx.addPath(CGPath(roundedRect: bar, cornerWidth: barWidth / 2, cornerHeight: barWidth / 2, transform: nil))
+    }
+    ctx.fillPath()
 
     NSGraphicsContext.restoreGraphicsState()
     return rep

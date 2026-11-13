@@ -1,6 +1,6 @@
-/* Record Everything – Deutsch */
+/* VibeCapture – Deutsch */
 "A recording is already running." = "Es läuft bereits eine Aufnahme.";
-"About Record Everything" = "Über Record Everything";
+"About VibeCapture" = "Über VibeCapture";
 "At least a part of the video has to remain." = "Mindestens ein Teil des Videos muss erhalten bleiben.";
 "Attention!" = "Achtung!";
 "Audio" = "Audio";
@@ -31,14 +31,14 @@
 "File Name:" = "Dateiname:";
 "File Size:" = "Dateigröße:";
 "File" = "Ablage";
-"Finished & Restart Record Everything" = "Fertig – Record Everything neu starten";
+"Finished & Restart VibeCapture" = "Fertig – VibeCapture neu starten";
 "Format:" = "Format:";
 "Forward 5 seconds" = "5 Sekunden vor";
 "Full Screen" = "Ganzer Bildschirm";
-"Hide Record Everything" = "Record Everything ausblenden";
+"Hide VibeCapture" = "VibeCapture ausblenden";
 "Hide Others" = "Andere ausblenden";
 "Keep only the selection" = "Nur Auswahl behalten";
-"Record Everything has no permission to record the screen." = "Record Everything darf den Bildschirm nicht aufnehmen.";
+"VibeCapture has no permission to record the screen." = "VibeCapture darf den Bildschirm nicht aufnehmen.";
 "Microphone" = "Mikrofon";
 "Minimize" = "Im Dock ablegen";
 "NEW" = "NEU";
@@ -55,11 +55,11 @@
 "Pause" = "Pause";
 "Permissions" = "Berechtigungen";
 "Play" = "Abspielen";
-"Please allow screen recording for Record Everything and restart it." = "Bitte erlaube Record Everything die Bildschirmaufnahme und starte die App danach neu.";
+"Please allow screen recording for VibeCapture and restart it." = "Bitte erlaube VibeCapture die Bildschirmaufnahme und starte die App danach neu.";
 "Please enter a name." = "Bitte einen Namen eingeben.";
 "Press keys…" = "Tasten drücken …";
 "Processing" = "Wird verarbeitet …";
-"Quit Record Everything" = "Record Everything beenden";
+"Quit VibeCapture" = "VibeCapture beenden";
 "Record Audio" = "Audio aufnehmen";
 "Record Screen" = "Bildschirm aufnehmen";
 "Record Webcam" = "Webcam aufnehmen";
@@ -142,7 +142,7 @@
 "Play a sound" = "Ton abspielen";
 "Public URL:" = "Öffentliche URL:";
 "Recent uploads" = "Letzte Uploads";
-"Record Everything is in the menu bar" = "Record Everything ist in der Menüleiste";
+"VibeCapture is in the menu bar" = "VibeCapture ist in der Menüleiste";
 "Record screen" = "Bildschirm aufnehmen";
 "Recordings" = "Aufnahmen";
 "Rectangle" = "Rechteck";
@@ -232,7 +232,7 @@
 "Add App…" = "App hinzufügen …";
 "Add" = "Hinzufügen";
 "Automatic pasting is allowed" = "Automatisches Einfügen ist erlaubt";
-"Needs Accessibility access to press ⌘V. Without it, the image is copied and the app comes to the front." = "Zum Drücken von ⌘V braucht Record Everything Zugriff auf die Bedienungshilfen. Ohne ihn wird das Bild kopiert und die App nach vorne geholt.";
+"Needs Accessibility access to press ⌘V. Without it, the image is copied and the app comes to the front." = "Zum Drücken von ⌘V braucht VibeCapture Zugriff auf die Bedienungshilfen. Ohne ihn wird das Bild kopiert und die App nach vorne geholt.";
 "Allow…" = "Erlauben …";
 
 /* Note and dictation in the screenshot editor */

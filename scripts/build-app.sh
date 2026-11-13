@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds and signs "Record Everything.app" into ./build.
+# Builds and signs "VibeCapture.app" into ./build.
 #   CONFIG=debug|release   default release
 #   ARCHS="arm64 x86_64"   architectures to build (default: this Mac's); several give a universal binary
 #   SIGN_IDENTITY=...      code signing identity; "-" signs ad hoc.
@@ -11,8 +11,8 @@ set -euo pipefail
 ROOT="${0:A:h:h}"
 CONFIG="${CONFIG:-release}"
 ARCHS=(${=ARCHS:-$(uname -m)})
-APP="$ROOT/build/Record Everything.app"
-ENTITLEMENTS="$ROOT/Support/RecordEverything.entitlements"
+APP="$ROOT/build/VibeCapture.app"
+ENTITLEMENTS="$ROOT/Support/VibeCapture.entitlements"
 
 cd "$ROOT"
 VENDOR="$ROOT/Vendor"
@@ -34,7 +34,7 @@ if [[ -z "${SDK:-}" ]]; then
 fi
 
 # Compiled with swiftc directly: the SwiftPM manifest API of the installed Command Line Tools does not link.
-SOURCES=("${(@f)$(find "$ROOT/Sources/RecordEverything" -name '*.swift' | sort)}")
+SOURCES=("${(@f)$(find "$ROOT/Sources/VibeCapture" -name '*.swift' | sort)}")
 SLICES=()
 for arch in "${ARCHS[@]}"; do
   echo "==> Compiling $arch ($CONFIG)"
@@ -42,20 +42,20 @@ for arch in "${ARCHS[@]}"; do
     -swift-version 5 \
     -target "$arch-apple-macos15.0" \
     -sdk "$SDK" \
-    -module-name RecordEverything \
+    -module-name VibeCapture \
     -framework ScreenCaptureKit -framework AVFoundation -framework AVKit -framework Carbon \
     -framework ServiceManagement -framework IOKit \
     -F "$VENDOR" -framework Sparkle \
     -Xlinker -rpath -Xlinker "@executable_path/../Frameworks" \
-    -o "$OUT/RecordEverything-$arch" \
+    -o "$OUT/VibeCapture-$arch" \
     "${SOURCES[@]}"
-  SLICES+=("$OUT/RecordEverything-$arch")
+  SLICES+=("$OUT/VibeCapture-$arch")
 done
-lipo -create "${SLICES[@]}" -output "$OUT/RecordEverything"
+lipo -create "${SLICES[@]}" -output "$OUT/VibeCapture"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$OUT/RecordEverything" "$APP/Contents/MacOS/RecordEverything"
+cp "$OUT/VibeCapture" "$APP/Contents/MacOS/VibeCapture"
 cp "$ROOT/Support/Info.plist" "$APP/Contents/Info.plist"
 for lproj in "$ROOT"/Resources/*.lproj; do
   cp -R "$lproj" "$APP/Contents/Resources/"
@@ -81,5 +81,5 @@ codesign "${BASE_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$APP"
 codesign --verify --deep --strict --verbose=1 "$APP"
 
 echo "Built $APP"
-echo "  architectures: $(lipo -archs "$APP/Contents/MacOS/RecordEverything")"
+echo "  architectures: $(lipo -archs "$APP/Contents/MacOS/VibeCapture")"
 echo "  signed with:   $SIGN_IDENTITY"
