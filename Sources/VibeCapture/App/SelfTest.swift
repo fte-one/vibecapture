@@ -650,6 +650,19 @@ enum SelfTest {
             checks["convertToPaths"] = toPaths.contains("> Screenshots im Ordner `\(feedback.folder.path)`")
                 && feedback.images.allSatisfy { toPaths.contains("Datei: `\($0.file.path)`") }
             checks["convertRoundTrip"] = feedback.imageMode != .attachments || back == feedback.markdown
+            // The same prompt in English: own headings, and switching to paths and back keeps the language.
+            let english = FeedbackRecording(startDate: Date(), duration: 30, appName: "Test", windowTitle: "Test",
+                                            shots: feedback.images.map(\.shot), pages: [],
+                                            speech: [FeedbackSpeech(start: 0, end: 2, text: "The border is missing")], speechErrors: [])
+            var englishOptions = FeedbackComposer.Options(model: "", maxImages: 20, extraInstructions: "", outputRoot: feedback.folder)
+            englishOptions.language = .english
+            let englishMD = FeedbackComposer.writeMarkdown(english, plan: nil, images: feedback.images, options: englishOptions,
+                                                           folder: feedback.folder, warning: nil)
+            let englishPaths = FeedbackComposer.convert(englishMD, to: .paths, images: feedback.images, folder: feedback.folder)
+            checks["englishPrompt"] = englishMD.contains("## Images and what was said") && englishMD.contains("### Image 1 · ")
+                && englishMD.contains("“The border is missing”") && englishMD.contains("attached to this message")
+            checks["englishConvert"] = englishPaths.contains("> Screenshots in the folder") && englishPaths.contains("File: `")
+                && FeedbackComposer.convert(englishPaths, to: .attachments, images: feedback.images, folder: feedback.folder) == englishMD
             checks["transcript"] = feedback.markdown.contains("Der Rand fehlt hier")
             if d.bool(forKey: "VibeCaptureTestExpectFallback") {
                 // The AI failed: the prompt is the protocol, with the screenshot nearest to what was said.

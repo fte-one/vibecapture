@@ -367,3 +367,9 @@
 "• The Secret Access Key has %d characters; R2's has 64." = "• Der Secret Access Key hat %d Zeichen, bei R2 sind es 64.";
 "Uploading works, but the public URL does not (%@)" = "Hochladen klappt, die öffentliche URL aber nicht (%@)";
 "The test file could not be read at %@. Links would not open. The public URL has to serve this bucket: its r2.dev address (switch on “Public access” for the bucket) or a custom domain connected to it." = "Die Testdatei war unter %@ nicht abrufbar, Links würden also nicht funktionieren. Die öffentliche URL muss auf diesen Bucket zeigen: seine r2.dev-Adresse (beim Bucket „Öffentlicher Zugriff“ einschalten) oder eine damit verbundene eigene Domain.";
+
+/* Language */
+"Like the system" = "Wie das System";
+"Applies after a restart." = "Gilt nach einem Neustart.";
+"Restart now" = "Jetzt neu starten";
+"“%@”" = "„%@“";

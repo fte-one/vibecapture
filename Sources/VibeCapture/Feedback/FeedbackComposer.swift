@@ -34,6 +34,8 @@ enum FeedbackComposer {
         var imageMode: FeedbackImageMode = .attachments
         /// Off: only the user's own screenshots go into the prompt (when there are any).
         var autoShots = false
+        /// Language of the prompt for the coding agent.
+        var language: PromptText = .english
     }
 
     /// Most stills the AI gets to choose from.
@@ -187,52 +189,55 @@ enum FeedbackComposer {
 
     // MARK: AI
 
-    static let systemPrompt = """
-    Du bekommst die Aufzeichnung einer Feedback-Session: Jemand klickt sich durch eine Anwendung (meist eine Web-App \
-    im Browser) und sagt dabei laut, was geändert werden soll. Mach daraus einen klaren Arbeitsauftrag für einen \
-    KI-Coding-Agenten, der den Code ändert.
+    static func systemPrompt(_ language: PromptText) -> String {
+        """
+        You get the recording of a feedback session: someone clicks through an application (usually a web app in \
+        the browser) and says out loud what should change. Turn it into a clear work order for an AI coding agent \
+        that changes the code.
 
-    Regeln:
-    - Jede gewünschte Änderung ist eine Aufgabe. Fasse Zusammengehöriges zusammen, lass Wiederholungen, Füllwörter, \
-    Versprecher und Selbstkorrekturen weg (es gilt die letzte Fassung).
-    - Sei konkret: Auf welcher Seite (URL), welches Element (so beschrieben, dass man es im Code findet: Beschriftung, \
-    Position, Farbe, Art), was ist jetzt falsch, was soll stattdessen sein.
-    - Erfinde nichts. Was sich aus der Aufnahme nicht klar ergibt, kommt als offene Frage.
-    - Das Transkript stammt aus einer Spracherkennung und kann Hörfehler enthalten (z. B. "Sportschau" statt \
-    "Sport-Show"). Korrigiere sie anhand der Beschriftungen auf den Bildern und nenne Elemente so, wie sie dort stehen.
-    - "hier", "das da", "dieser": gemeint ist die markierte Stelle im Bild zu diesem Zeitpunkt.
-    - Bilder, die "vom Nutzer aufgenommen" sind, hat er bewusst gemacht: Jedes davon gehört zu mindestens einer \
-    Aufgabe. Was er seit dem vorigen Bild bis wenige Sekunden danach sagt, bezieht sich auf dieses Bild (siehe \
-    "Gesagtes je Bild"). Rote Linien hat er selbst gezeichnet, um die gemeinte Stelle zu zeigen.
-    - Bilder: Gib pro Aufgabe die 1 bis 3 aussagekräftigsten Bilder an (Kennungen wie "K12"). Rote Kreise sind \
-    Klickstellen, gelbe Kreise die Stelle, auf die die Maus beim Sprechen zeigte, rote Rahmen markierte Bereiche. \
-    Nutze vor allem Bilder, auf die sich das Gesagte bezieht.
-    - summary: nur worum es insgesamt geht, sachlich und ohne Bewertung der Aussagen. Unklares gehört in questions.
-    - quotes: kurze wörtliche Zitate des Gesagten, wenn sie die Absicht klarer machen.
-    - Schreib auf Deutsch.
+        Rules:
+        - Every requested change is one task. Merge what belongs together; leave out repetitions, filler words, slips \
+        and self-corrections (the last version counts).
+        - Be concrete: on which page (URL), which element (described so it can be found in the code: label, position, \
+        colour, kind), what is wrong now, what it should be instead.
+        - Invent nothing. What the recording does not make clear becomes an open question.
+        - The transcript comes from speech recognition and can contain mishearings. Correct them using the labels in \
+        the images and name elements the way they are written there.
+        - "here", "this one", "that": the marked spot in the image at that moment is meant.
+        - Images "taken by the user" were taken on purpose: each belongs to at least one task. What the user says \
+        since the previous image until a few seconds after refers to this image (see "Said per image"). Red lines \
+        were drawn by the user to show the spot they mean.
+        - images: per task, the 1 to 3 most telling images (keys like "K12"). Red circles are clicks, yellow circles \
+        the spot the mouse pointed at while talking, red frames selected areas. Prefer images the speech refers to.
+        - summary: only what the session is about overall, factual, without judging the statements. Unclear things \
+        go into questions.
+        - quotes: short verbatim quotes of what was said when they make the intent clearer (keep them in the \
+        language they were spoken in).
+        - Write title, summary, tasks and questions in \(language.languageName).
 
-    Antworte nur mit JSON in dieser Form, ohne weiteren Text:
-    {"title": "kurzer Titel der Session", "summary": "1–3 Sätze: worum es insgesamt geht", \
-    "tasks": [{"title": "kurz", "description": "konkret, was zu tun ist", "url": "Seite oder null", \
-    "images": ["K3"], "quotes": ["…"]}], "questions": ["offene Frage"]}
-    """
+        Answer only with JSON in this form, without any other text:
+        {"title": "short title of the session", "summary": "1–3 sentences: what it is about overall", \
+        "tasks": [{"title": "short", "description": "concretely what to do", "url": "page or null", \
+        "images": ["K3"], "quotes": ["…"]}], "questions": ["open question"]}
+        """
+    }
 
     static func timeline(_ recording: FeedbackRecording, candidates: [FeedbackShot], manualOnly: Bool = false) -> String {
         var lines: [(TimeInterval, Int, String)] = []
         for page in recording.pages {
             let title = page.title.isEmpty ? "" : "\(page.title) – "
-            lines.append((page.time, 0, "[\(feedbackClock(page.time))] Seite: \(title)\(page.url ?? "(keine URL)")"))
+            lines.append((page.time, 0, "[\(feedbackClock(page.time))] Page: \(title)\(page.url ?? "(no URL)")"))
         }
         for shot in candidates {
             var line = "[\(feedbackClock(shot.time))] \(shot.key): "
             switch shot.kind {
-            case .start: line += "Start der Session"
-            case .click: line += "Klick (roter Kreis)"
-            case .selection: line += "Bereich markiert (roter Rahmen)" + (shot.selectedText.map { ", markierter Text: „\($0)“" } ?? "")
-            case .mark: line += "vom Nutzer aufgenommen"
-            case .drawing: line += "vom Nutzer aufgenommen und mit roter Linie markiert"
-            case .hover: line += "Maus zeigt beim Sprechen hierhin (gelber Kreis)"
-            case .change: line += "Ansicht hat sich geändert"
+            case .start: line += "start of the session"
+            case .click: line += "click (red circle)"
+            case .selection: line += "area selected (red frame)" + (shot.selectedText.map { ", selected text: \"\($0)\"" } ?? "")
+            case .mark: line += "taken by the user"
+            case .drawing: line += "taken by the user and marked with a red line"
+            case .hover: line += "the mouse points here while the user talks (yellow circle)"
+            case .change: line += "the view changed"
             }
             lines.append((shot.time, 1, line))
         }
@@ -240,15 +245,15 @@ enum FeedbackComposer {
             // Clicks and selections without a picture still tell where the user was.
             for shot in recording.shots where !shot.isManual {
                 switch shot.kind {
-                case .click: lines.append((shot.time, 1, "[\(feedbackClock(shot.time))] Klick (ohne Bild)"))
+                case .click: lines.append((shot.time, 1, "[\(feedbackClock(shot.time))] click (no image)"))
                 case .selection:
-                    if let text = shot.selectedText { lines.append((shot.time, 1, "[\(feedbackClock(shot.time))] Text markiert: „\(text)“")) }
+                    if let text = shot.selectedText { lines.append((shot.time, 1, "[\(feedbackClock(shot.time))] text selected: \"\(text)\"")) }
                 default: break
                 }
             }
         }
         for part in recording.speech {
-            lines.append((part.start, 2, "[\(feedbackClock(part.start))–\(feedbackClock(part.end))] Gesagt: „\(part.text)“"))
+            lines.append((part.start, 2, "[\(feedbackClock(part.start))–\(feedbackClock(part.end))] said: \"\(part.text)\""))
         }
         return lines.sorted { $0.0 != $1.0 ? $0.0 < $1.0 : $0.1 < $1.1 }.map(\.2).joined(separator: "\n")
     }
@@ -257,20 +262,20 @@ enum FeedbackComposer {
         var perImage = ""
         if manualOnly {
             let groups = speechGroups(candidates, recording.speech)
-            perImage = "\n\nGesagtes je Bild:\n" + groups.map { group in
-                let said = group.parts.map { "„\($0.text)“" }.joined(separator: " ")
-                return "\(group.shot.map(\.key) ?? "nach dem letzten Bild"): \(said.isEmpty ? "(nichts)" : said)"
+            perImage = "\n\nSaid per image:\n" + groups.map { group in
+                let said = group.parts.map { "\"\($0.text)\"" }.joined(separator: " ")
+                return "\(group.shot.map(\.key) ?? "after the last image"): \(said.isEmpty ? "(nothing)" : said)"
             }.joined(separator: "\n")
         }
         var content: [[String: Any]] = [[
             "type": "text",
             "text": """
-            Session: \(feedbackClock(recording.duration)) Min., App: \(recording.appName), Fenster: \(recording.windowTitle)
+            Session: \(feedbackClock(recording.duration)) min, app: \(recording.appName), window: \(recording.windowTitle)
 
-            Zeitleiste:
+            Timeline:
             \(timeline(recording, candidates: candidates, manualOnly: manualOnly))\(perImage)
 
-            Es folgen die Bilder mit ihren Kennungen.
+            The images follow, each with its key.
             """,
         ]]
         for shot in candidates {
@@ -279,7 +284,7 @@ enum FeedbackComposer {
             content.append(["type": "text", "text": "\(shot.key) (\(feedbackClock(shot.time)))"])
             content.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + jpeg.base64EncodedString()]])
         }
-        let answer = try await OpenRouter.chat(model: options.model, system: systemPrompt, content: content, maxTokens: 6000)
+        let answer = try await OpenRouter.chat(model: options.model, system: systemPrompt(options.language), content: content, maxTokens: 6000)
         guard let plan = parsePlan(answer) else {
             throw OpenRouter.Failure(message: L("the answer could not be read."))
         }
@@ -315,9 +320,10 @@ enum FeedbackComposer {
 
     static func writeMarkdown(_ recording: FeedbackRecording, plan: Plan?, images: [FeedbackResult.Image], options: Options,
                               folder: URL, warning: String?) -> String {
+        let t = options.language
         let byShot = Dictionary(images.map { ($0.shot.id, $0) }, uniquingKeysWith: { a, _ in a })
-        // Tasks and protocol say "Bild 3"; the list of images maps each number to its file once.
-        func link(_ image: FeedbackResult.Image) -> String { "Bild \(image.number)" }
+        // Tasks say "Image 3"; the images section names each image (and its file) once.
+        func link(_ image: FeedbackResult.Image) -> String { "\(t.image) \(image.number)" }
         let date = DateFormatter.localizedString(from: recording.startDate, dateStyle: .medium, timeStyle: .short)
         var md: [String] = []
 
@@ -325,31 +331,28 @@ enum FeedbackComposer {
         md.append("# Feedback: \(title)")
         md.append("")
         if let summary = plan?.summary, !summary.isEmpty { md.append(summary); md.append("") }
-        md.append("> Aufgenommen am \(date) · \(feedbackClock(recording.duration)) Min. · \(recording.appName)")
+        md.append(String(format: t.recorded, date, feedbackClock(recording.duration), recording.appName))
         if !images.isEmpty {
-            let legend = "Rote Linien habe ich selbst gezogen, um die gemeinte Stelle zu zeigen; rote Kreise sind Klicks, gelbe "
-                + "Kreise zeigen, wohin die Maus beim Sprechen zeigte, rote Rahmen sind markierte Bereiche. "
-                + "Sieh dir die Bilder an, bevor du etwas änderst."
-            md.append(screenshotsLine(options.imageMode, count: images.count, folder: folder) + legend)
+            md.append(screenshotsLine(options.imageMode, count: images.count, folder: folder, language: t) + t.legend)
         }
         if let warning { md.append(">"); md.append("> ⚠️ \(warning)") }
         md.append("")
 
         if let plan, !plan.tasks.isEmpty {
-            md.append("## Aufgaben")
+            md.append(t.tasks)
             md.append("")
             for (i, task) in plan.tasks.enumerated() {
                 md.append("### \(i + 1). \(task.title)")
                 md.append("")
                 if !task.description.isEmpty { md.append(task.description); md.append("") }
-                if let url = task.url { md.append("- Seite: \(url)") }
+                if let url = task.url { md.append(t.pageItem + url) }
                 let refs = task.images.compactMap { byShot[$0] }.sorted { $0.number < $1.number }.map(link)
-                if !refs.isEmpty { md.append("- Bilder: " + refs.joined(separator: ", ")) }
-                for quote in task.quotes { md.append("- O-Ton: „\(quote)“") }
+                if !refs.isEmpty { md.append(t.imagesItem + refs.joined(separator: ", ")) }
+                for quote in task.quotes { md.append(t.quoteItem + String(format: t.quoted, quote)) }
                 md.append("")
             }
             if !plan.questions.isEmpty {
-                md.append("## Offene Fragen")
+                md.append(t.questions)
                 md.append("")
                 plan.questions.forEach { md.append("- \($0)") }
                 md.append("")
@@ -358,7 +361,7 @@ enum FeedbackComposer {
 
         let extra = options.extraInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
         if !extra.isEmpty {
-            md.append("## Zusatzanweisungen")
+            md.append(t.extra)
             md.append("")
             md.append(extra)
             md.append("")
@@ -366,27 +369,27 @@ enum FeedbackComposer {
 
         if !images.isEmpty {
             // Each picture with what was said about it: readable on its own, also without the AI.
-            md.append("## Bilder und was dazu gesagt wurde")
+            md.append(t.imagesAndSpeech)
             md.append("")
             for group in speechGroups(images.map(\.shot), recording.speech) {
                 if let shot = group.shot, let image = byShot[shot.id] {
-                    var heading = "### Bild \(image.number) · \(feedbackClock(shot.time))"
+                    var heading = "### \(t.image) \(image.number) · \(feedbackClock(shot.time))"
                     if let url = shot.url { heading += " · \(url)" } else if let title = shot.title, !title.isEmpty { heading += " · \(title)" }
                     md.append(heading)
-                    if options.imageMode == .paths { md.append("Datei: `\(image.file.path)`") }
-                    if let text = shot.selectedText { md.append("Markiert: „\(text)“") }
+                    if options.imageMode == .paths { md.append(t.fileLine + "`\(image.file.path)`") }
+                    if let text = shot.selectedText { md.append(t.selectedLine + String(format: t.quoted, text)) }
                 } else {
-                    md.append("### Nach dem letzten Bild")
+                    md.append(t.afterLast)
                 }
-                let said = group.parts.map { "„\($0.text)“" }.joined(separator: " ")
-                md.append(said.isEmpty ? "(nichts gesagt)" : said)
+                let said = group.parts.map { String(format: t.quoted, $0.text) }.joined(separator: " ")
+                md.append(said.isEmpty ? t.nothingSaid : said)
                 md.append("")
             }
         } else {
-            md.append("## Protokoll")
+            md.append(t.transcript)
             md.append("")
-            if recording.speech.isEmpty { md.append("- (Nichts gesagt oder nicht in Text umgewandelt.)") }
-            for part in recording.speech { md.append("- \(feedbackClock(part.start)) · „\(part.text)“") }
+            if recording.speech.isEmpty { md.append(t.nothingTranscribed) }
+            for part in recording.speech { md.append("- \(feedbackClock(part.start)) · " + String(format: t.quoted, part.text)) }
             md.append("")
         }
 
@@ -398,7 +401,7 @@ enum FeedbackComposer {
             if !label.isEmpty { visited.append("- \(feedbackClock(page.time)) · \(label)") }
         }
         if !visited.isEmpty {
-            md.append("## Besuchte Seiten")
+            md.append(t.visited)
             md.append("")
             md.append(contentsOf: visited)
             md.append("")
@@ -406,34 +409,33 @@ enum FeedbackComposer {
         return md.joined(separator: "\n")
     }
 
-    /// The line that tells the agent where the screenshots are; it ends with "oben links im Bild. ".
-    static func screenshotsLine(_ mode: FeedbackImageMode, count: Int, folder: URL) -> String {
+    /// The line that tells the agent where the screenshots are; it ends with the language's `markerEnd`.
+    static func screenshotsLine(_ mode: FeedbackImageMode, count: Int, folder: URL, language t: PromptText) -> String {
         switch mode {
-        case .attachments:
-            return "> Die \(count) Screenshots hängen dieser Nachricht als Bilder an, in der Reihenfolge Bild 1 bis "
-                + "Bild \(count); die Nummer steht zusätzlich oben links im Bild. "
-        case .paths:
-            return "> Screenshots im Ordner `\(folder.path)`: Bild N ist `NN.png`, die Nummer steht oben links im Bild. "
+        case .attachments: return String(format: t.attachedLine, count, count)
+        case .paths: return String(format: t.folderLine, folder.path)
         }
     }
 
     /// Switches a (possibly edited) prompt between attached images and file paths: rewrites the screenshots line
-    /// and adds or removes the "Datei:" line under each picture's heading. Everything else stays as the user left it.
+    /// and adds or removes the file line under each image's heading. Everything else stays as the user left it;
+    /// the prompt keeps its language.
     static func convert(_ markdown: String, to mode: FeedbackImageMode, images: [FeedbackResult.Image], folder: URL) -> String {
         var lines = markdown.components(separatedBy: "\n")
-        let marker = "oben links im Bild. "
-        if let i = lines.firstIndex(where: {
-            ($0.hasPrefix("> Die ") && $0.contains("hängen dieser Nachricht als Bilder an")) || $0.hasPrefix("> Screenshots im Ordner ")
-        }) {
-            let tail = lines[i].components(separatedBy: marker).dropFirst().joined(separator: marker)
-            lines[i] = screenshotsLine(mode, count: images.count, folder: folder) + tail
+        var t = PromptText.english
+        if let i = lines.firstIndex(where: { line in PromptText.all.contains { $0.isScreenshotsLine(line) } }) {
+            t = PromptText.all.first { $0.isScreenshotsLine(lines[i]) } ?? .english
+            let tail = lines[i].components(separatedBy: t.markerEnd).dropFirst().joined(separator: t.markerEnd)
+            lines[i] = screenshotsLine(mode, count: images.count, folder: folder, language: t) + tail
+        } else if markdown.contains(PromptText.german.imagesAndSpeech) {
+            t = .german
         }
-        lines.removeAll { $0.hasPrefix("Datei: `") }
+        lines.removeAll { line in PromptText.all.contains { line.hasPrefix($0.fileLine + "`") } }
         if mode == .paths {
             for image in images {
-                let heading = "### Bild \(image.number)"
+                let heading = "### \(t.image) \(image.number)"
                 if let i = lines.firstIndex(where: { $0 == heading || $0.hasPrefix(heading + " ·") }) {
-                    lines.insert("Datei: `\(image.file.path)`", at: i + 1)
+                    lines.insert(t.fileLine + "`\(image.file.path)`", at: i + 1)
                 }
             }
         }

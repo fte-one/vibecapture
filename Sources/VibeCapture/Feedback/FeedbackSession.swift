@@ -263,7 +263,8 @@ final class FeedbackSession: ObservableObject {
                 outputRoot: UserDefaults.standard.string(forKey: "VibeCaptureTestFeedbackOutput").map { URL(fileURLWithPath: $0) }
                     ?? settings.saveFolder.appendingPathComponent("Feedback", isDirectory: true),
                 imageMode: settings.feedbackImageMode,
-                autoShots: settings.feedbackAutoShots)
+                autoShots: settings.feedbackAutoShots,
+                language: PromptText.current)
             let result = await FeedbackComposer.compose(recording, options: options)
             speech = nil
             FeedbackChrome.shared.hide()

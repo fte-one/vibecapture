@@ -75,6 +75,7 @@ private func settingsLabel(_ s: String) -> some View {
 private struct GeneralSettings: View {
     @ObservedObject private var settings = AppSettings.shared
     @State private var autoUpdateToggled = false
+    @State private var languageChanged = false
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
@@ -88,6 +89,21 @@ private struct GeneralSettings: View {
                 }
                 .padding(.horizontal, 8).padding(.vertical, 5)
                 .background(RoundedRectangle(cornerRadius: 6).fill(Theme.tile))
+            }
+            GridRow {
+                settingsLabel(L("Language:"))
+                HStack(spacing: 10) {
+                    Picker("", selection: $settings.appLanguage) {
+                        ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    .onChange(of: settings.appLanguage) { _, _ in languageChanged = true }
+                    if languageChanged {
+                        Text(L("Applies after a restart.")).font(.system(size: 11)).foregroundStyle(Theme.secondary)
+                        Button(L("Restart now")) { relaunchApp() }.controlSize(.small)
+                    }
+                }
             }
             GridRow {
                 settingsLabel(L("Startup:"))
@@ -657,12 +673,5 @@ struct PermissionView: View {
         .background(Theme.background)
     }
 
-    private func relaunch() {
-        let path = Bundle.main.bundlePath
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/bin/sh")
-        task.arguments = ["-c", "sleep 0.5; open \"\(path)\""]
-        try? task.run()
-        NSApp.terminate(nil)
-    }
+    private func relaunch() { relaunchApp() }
 }

@@ -178,7 +178,7 @@ private struct FeedbackBarView: View {
                     .overlay(alignment: .leading) {
                         Capsule().fill(Theme.accent).frame(width: 34 * CGFloat(session.level), height: 5)
                     }
-                Text(session.lastWords.isEmpty ? hint : "„\(session.lastWords)“")
+                Text(session.lastWords.isEmpty ? hint : String(format: L("“%@”"), session.lastWords))
                     .font(.system(size: 11.5))
                     .foregroundStyle(Theme.secondary)
                     .lineLimit(1)

@@ -4,6 +4,46 @@ import ServiceManagement
 
 func L(_ key: String) -> String { NSLocalizedString(key, comment: "") }
 
+/// The app's interface language: like the system (English unless the system prefers German), or fixed.
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case system, en, de
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return L("Like the system")
+        case .en: return "English"
+        case .de: return "Deutsch"
+        }
+    }
+
+    /// The language the interface runs in right now (chosen at launch).
+    static var active: AppLanguage {
+        Bundle.main.preferredLocalizations.first?.lowercased().hasPrefix("de") == true ? .de : .en
+    }
+
+    /// Takes effect at the next launch: macOS picks the localization from the app's AppleLanguages.
+    func apply() {
+        if self == .system {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.set([rawValue], forKey: "AppleLanguages")
+        }
+    }
+}
+
+/// Starts the app again (after a language change or a permission grant).
+@MainActor
+func relaunchApp() {
+    let path = Bundle.main.bundlePath
+    let task = Process()
+    task.executableURL = URL(fileURLWithPath: "/bin/sh")
+    task.arguments = ["-c", "sleep 0.5; open \"\(path)\""]
+    try? task.run()
+    NSApp.terminate(nil)
+}
+
 /// User preferences plus the last used capture options.
 @MainActor
 final class AppSettings: ObservableObject {
@@ -11,6 +51,10 @@ final class AppSettings: ObservableObject {
 
     private let defaults = UserDefaults.standard
 
+    /// Interface language; a change applies after a restart.
+    @Published var appLanguage: AppLanguage {
+        didSet { defaults.set(appLanguage.rawValue, forKey: "appLanguage"); appLanguage.apply() }
+    }
     @Published var saveFolder: URL {
         didSet { defaults.set(saveFolder.path, forKey: "saveFolder") }
     }
@@ -108,6 +152,7 @@ final class AppSettings: ObservableObject {
     private init() {
         let movies = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("VibeCapture", isDirectory: true)
+        appLanguage = defaults.string(forKey: "appLanguage").flatMap(AppLanguage.init(rawValue:)) ?? .system
         saveFolder = defaults.string(forKey: "saveFolder").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? movies
         startPauseHotKey = Self.loadHotKey("startPauseHotKey", default: nil)
         stopHotKey = Self.loadHotKey("stopHotKey", default: nil)
