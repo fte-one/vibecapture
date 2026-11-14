@@ -16,14 +16,28 @@ struct S3Client {
 
         var errorDescription: String? {
             switch self {
-            case .http(let status, let body):
-                let code = body.range(of: "<Code>").flatMap { start in
-                    body.range(of: "</Code>").map { String(body[start.upperBound..<$0.lowerBound]) }
-                }
+            case .http(let status, _):
                 return "HTTP \(status)" + (code.map { " (\($0))" } ?? "")
             case .badResponse:
                 return L("The server sent no valid response.")
             }
+        }
+
+        var status: Int? {
+            if case .http(let status, _) = self { return status }
+            return nil
+        }
+
+        /// The S3 error code from the XML answer, e.g. "AccessDenied".
+        var code: String? { tag("Code") }
+        /// The server's own explanation, if it sent one.
+        var message: String? { tag("Message") }
+
+        private func tag(_ name: String) -> String? {
+            guard case .http(_, let body) = self, let start = body.range(of: "<\(name)>"),
+                  let end = body.range(of: "</\(name)>", range: start.upperBound..<body.endIndex) else { return nil }
+            let value = body[start.upperBound..<end.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
         }
     }
 

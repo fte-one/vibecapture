@@ -15,7 +15,7 @@ enum SelfTest {
         let output = UserDefaults.standard.string(forKey: "VibeCaptureSelfTestOutput") ?? NSTemporaryDirectory() + "vibecapture-selftest.json"
         Task {
             var result: [String: Any] = ["mode": mode]
-            if ["upload", "files", "drop", "drophint", "screenshot", "annotate", "annotatecopy", "paste", "note", "frozen", "feedback", "popover", "settings", "menubaricon", "voicemix", "preview"].contains(mode) {
+            if ["upload", "files", "drop", "drophint", "screenshot", "annotate", "annotatecopy", "paste", "note", "frozen", "feedback", "uploaderrors", "popover", "settings", "menubaricon", "voicemix", "preview"].contains(mode) {
                 await runExtra(mode, into: &result)
                 if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
                     try? data.write(to: URL(fileURLWithPath: output))
@@ -137,9 +137,12 @@ enum SelfTest {
         switch mode {
         case "upload":
             do {
-                result["testConnection"] = try await UploadManager.shared.testConnection().absoluteString
+                let check = try await UploadManager.shared.testConnection()
+                result["testConnection"] = check.url.absoluteString
+                if let warning = check.warning { result["testConnectionWarning"] = warning.title }
             } catch {
                 result["testConnectionError"] = "\(error)"
+                result["testConnectionProblem"] = UploadManager.shared.explain(error).title
             }
             // The test must not leave anything behind in the user's clipboard or upload history.
             let savedClipboard = NSPasteboard.general.string(forType: .string)
@@ -157,6 +160,48 @@ enum SelfTest {
             NSPasteboard.general.clearContents()
             if let savedClipboard { NSPasteboard.general.setString(savedClipboard, forType: .string) }
             try? await Task.sleep(for: .seconds(1))
+        case "uploaderrors":
+            // Every kind of storage answer gets its own explanation. VibeCaptureTestS3: a stand-in S3 server whose
+            // behaviour follows the bucket name.
+            let base = UserDefaults.standard.string(forKey: "VibeCaptureTestS3") ?? "http://127.0.0.1:8798"
+            func settings(bucket: String, endpoint: String = base, account: String = "") -> UploadSettings {
+                var s = UploadSettings()
+                s.accountID = account
+                s.customEndpoint = endpoint
+                s.bucket = bucket
+                s.publicBaseURL = "\(base)/public/\(bucket)/"
+                return s
+            }
+            let cases: [(String, UploadSettings, String)] = [
+                ("ok", settings(bucket: "ok"), ""),
+                ("badpublic", settings(bucket: "badpublic"), "public URL"),
+                ("denied", settings(bucket: "denied"), "Access denied"),
+                ("unknownkey", settings(bucket: "unknownkey"), "Unknown Access Key ID"),
+                ("badsig", settings(bucket: "badsig"), "Secret Access Key does not match"),
+                ("nobucket", settings(bucket: "nobucket"), "Bucket not found"),
+                ("unauthorized", settings(bucket: "unauthorized"), "Sign-in refused"),
+                ("servererror", settings(bucket: "servererror"), "Storage error"),
+                ("nohost", settings(bucket: "x", endpoint: "https://no-such-host.invalid"), "Server not found"),
+                // R2 with a malformed account ID: the hints name the wrong lengths.
+                ("r2hints", settings(bucket: "x", endpoint: "", account: "abc"), "characters"),
+            ]
+            var checks: [String: Bool] = [:]
+            for (name, s, expected) in cases {
+                UploadManager.shared.testOverride = (s, "short-key", "short-secret")
+                do {
+                    let check = try await UploadManager.shared.testConnection()
+                    let warning = check.warning.map { $0.title + " | " + $0.detail } ?? ""
+                    result[name] = "ok" + (warning.isEmpty ? "" : " / warning: " + warning)
+                    checks[name] = expected.isEmpty ? check.warning == nil : warning.contains(expected)
+                } catch {
+                    let problem = UploadManager.shared.explain(error)
+                    result[name] = problem.title + " | " + problem.detail
+                    checks[name] = !expected.isEmpty && (problem.title + problem.detail).contains(expected)
+                }
+            }
+            UploadManager.shared.testOverride = nil
+            result["checks"] = checks
+            result["ok"] = checks.values.allSatisfy { $0 }
         case "screenshot":
             let screen = NSScreen.main!
             do {

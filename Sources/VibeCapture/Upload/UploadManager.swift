@@ -172,16 +172,35 @@ final class UploadManager: ObservableObject {
                         accessKeyID: access, secretAccessKey: secret)
     }
 
-    /// Writes and deletes a small test object.
-    func testConnection() async throws -> URL {
+    struct ConnectionCheck {
+        let url: URL
+        /// Uploading works, but something else needs a look (the public URL).
+        let warning: UploadProblem?
+    }
+
+    /// Writes a small test object, reads it back through the public URL and deletes it again.
+    func testConnection() async throws -> ConnectionCheck {
         let client = try client()
-        let key = ".vibecapture-test-\(UUID().uuidString.prefix(8)).txt"
+        let key = "vibecapture-test-\(UUID().uuidString.prefix(8).lowercased()).txt"
+        let marker = "VibeCapture connection test"
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(key)
-        try Data("VibeCapture".utf8).write(to: file)
+        try Data(marker.utf8).write(to: file)
         defer { try? FileManager.default.removeItem(at: file) }
         try await client.putObject(key: key, fileURL: file, contentType: "text/plain")
+        let url = currentSettings.publicURL(for: key)!
+        var warning: UploadProblem?
+        do {
+            let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 15)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if status != 200 || String(data: data, encoding: .utf8) != marker {
+                warning = publicURLProblem(status: status, url: url)
+            }
+        } catch {
+            warning = publicURLProblem(status: nil, url: url, error: error)
+        }
         try? await client.deleteObject(key: key)
-        return currentSettings.publicURL(for: key)!
+        return ConnectionCheck(url: url, warning: warning)
     }
 
     /// The client; without one it points out the missing setup and opens the upload settings.
@@ -265,13 +284,14 @@ final class UploadManager: ObservableObject {
             Toast.shared.show(L("Upload cancelled"), detail: links.isEmpty ? nil : copied, symbol: "xmark.circle.fill",
                               style: .info, duration: 2.5, anchor: anchor)
         } else if links.isEmpty, let error = failures.first {
-            Toast.shared.show(L("Upload failed") + ": " + error.localizedDescription, symbol: "xmark.octagon.fill",
-                              style: .error, duration: 6, anchor: anchor)
+            let problem = explain(error)
+            Toast.shared.show(L("Upload failed") + ": " + problem.title, detail: problem.detail, symbol: "xmark.octagon.fill",
+                              style: .error, duration: 9, anchor: anchor)
         } else if failures.isEmpty {
             Toast.shared.show(copied, detail: links.count == 1 ? links[0].absoluteString : L("One link per line"),
                               symbol: "checkmark.circle.fill", style: .success, duration: 2.5, anchor: anchor)
         } else {
-            Toast.shared.show(copied + " · " + String(format: L("%d failed"), failures.count), detail: failures[0].localizedDescription,
+            Toast.shared.show(copied + " · " + String(format: L("%d failed"), failures.count), detail: explain(failures[0]).title,
                               symbol: "exclamationmark.triangle.fill", style: .error, duration: 6, anchor: anchor)
         }
         return links
@@ -324,5 +344,128 @@ final class UploadManager: ObservableObject {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let url = dir.appendingPathComponent(key.replacingOccurrences(of: "/", with: "_") + ".png")
         return (try? png.write(to: url)) != nil ? url.path : nil
+    }
+}
+
+// MARK: - Explaining upload errors
+
+/// What went wrong with uploading, in words a user can act on.
+struct UploadProblem: Equatable {
+    let title: String
+    let detail: String
+}
+
+extension UploadManager {
+    /// Turns an upload error into a cause and what to check, using the settings it happened with.
+    func explain(_ error: Error) -> UploadProblem {
+        let settings = currentSettings
+        let bucket = settings.bucket.trimmingCharacters(in: .whitespaces)
+        let account = settings.accountID.trimmingCharacters(in: .whitespaces)
+        let isR2 = settings.customEndpoint.trimmingCharacters(in: .whitespaces).isEmpty
+        let hints = isR2 ? formatHints() : []
+        func with(_ problem: UploadProblem) -> UploadProblem {
+            guard !hints.isEmpty else { return problem }
+            return UploadProblem(title: problem.title, detail: problem.detail + "\n\n" + hints.joined(separator: "\n"))
+        }
+
+        if let upload = error as? UploadError {
+            return UploadProblem(title: upload.localizedDescription, detail: L("Fill in account ID, bucket, both keys and the public URL."))
+        }
+        if let urlError = error as? URLError {
+            return with(networkProblem(urlError, host: settings.endpoint?.host ?? "?"))
+        }
+        guard let s3 = error as? S3Client.S3Error, let status = s3.status else {
+            return UploadProblem(title: error.localizedDescription, detail: "")
+        }
+        let label = "HTTP \(status)" + (s3.code.map { ", \($0)" } ?? "")
+        switch s3.code {
+        case "AccessDenied":
+            return with(UploadProblem(
+                title: String(format: L("Access denied (%@)"), label),
+                detail: String(format: L("Cloudflare recognises the key, but this R2 API token may not write to the bucket “%@”. Check the token under R2 › Manage API tokens: permission “Object Read & Write”, the bucket within the token's scope, not expired, and no IP filter that excludes you."), bucket)))
+        case "InvalidAccessKeyId":
+            return with(UploadProblem(
+                title: String(format: L("Unknown Access Key ID (%@)"), label),
+                detail: L("Cloudflare does not know this Access Key ID: mistyped, the token was deleted, or it belongs to another account. The account ID has to be the account the token was made in.")))
+        case "SignatureDoesNotMatch":
+            return with(UploadProblem(
+                title: String(format: L("Secret Access Key does not match (%@)"), label),
+                detail: L("The Access Key ID is known, but the Secret Access Key does not belong to it. Copy it again from the token (Cloudflare shows it only once, when the token is created), without spaces.")))
+        case "NoSuchBucket":
+            return with(UploadProblem(
+                title: String(format: L("Bucket not found (%@)"), label),
+                detail: isR2
+                    ? String(format: L("There is no bucket “%@” in the account %@. Check the name (lowercase) and the account ID. Buckets with EU jurisdiction need the endpoint https://<account ID>.eu.r2.cloudflarestorage.com under “Other S3-compatible storage”."), bucket, account)
+                    : String(format: L("This storage has no bucket “%@”. Check the name and the endpoint."), bucket)))
+        case "InvalidBucketName":
+            return with(UploadProblem(
+                title: String(format: L("Invalid bucket name (%@)"), label),
+                detail: L("Bucket names use lowercase letters, digits and hyphens, 3 to 63 characters.")))
+        case "RequestTimeTooSkewed":
+            return UploadProblem(
+                title: String(format: L("The Mac's clock is off (%@)"), label),
+                detail: L("Signed requests are only valid within a few minutes of the real time. Turn on “Set time and date automatically” in System Settings › General › Date & Time."))
+        case "EntityTooLarge":
+            return UploadProblem(title: String(format: L("File too large (%@)"), label), detail: L("A single upload can be at most 5 GB."))
+        default:
+            break
+        }
+        if status == 401 {
+            return with(UploadProblem(
+                title: String(format: L("Sign-in refused (%@)"), label),
+                detail: L("Cloudflare did not accept Access Key ID and Secret Access Key. Copy both again from the R2 API token.")))
+        }
+        if status >= 500 {
+            return UploadProblem(
+                title: String(format: L("Storage error (%@)"), label),
+                detail: L("The storage service had a problem of its own. Try again in a moment."))
+        }
+        return with(UploadProblem(title: label, detail: s3.message ?? L("The storage service refused the upload.")))
+    }
+
+    private func networkProblem(_ error: URLError, host: String) -> UploadProblem {
+        switch error.code {
+        case .cannotFindHost, .dnsLookupFailed:
+            return UploadProblem(
+                title: String(format: L("Server not found: %@"), host),
+                detail: L("Check the account ID: 32 characters from the R2 overview in the Cloudflare dashboard. With other storage, check the endpoint."))
+        case .notConnectedToInternet, .networkConnectionLost:
+            return UploadProblem(title: L("No internet connection"), detail: L("Connect to the internet and try again."))
+        case .timedOut:
+            return UploadProblem(title: L("The server did not answer in time"), detail: L("Try again; with other storage, check the endpoint."))
+        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateNotYetValid,
+             .serverCertificateHasUnknownRoot:
+            return UploadProblem(
+                title: String(format: L("No secure connection to %@"), host),
+                detail: L("Check the account ID or the endpoint; a VPN or proxy can also get in the way."))
+        default:
+            return UploadProblem(title: error.localizedDescription, detail: "")
+        }
+    }
+
+    /// Cloudflare R2 keys have fixed lengths; a different one is the usual copy mistake.
+    private func formatHints() -> [String] {
+        func isHex(_ s: String, _ count: Int) -> Bool { s.count == count && s.allSatisfy(\.isHexDigit) }
+        let account = currentSettings.accountID.trimmingCharacters(in: .whitespaces)
+        let access = (testOverride?.accessKey ?? accessKeyID), secret = (testOverride?.secret ?? secretAccessKey)
+        var hints: [String] = []
+        if !isHex(account.lowercased(), 32) {
+            hints.append(String(format: L("• The account ID has %d characters; Cloudflare's has 32 (0–9, a–f)."), account.count))
+        }
+        if !isHex(access.lowercased(), 32) {
+            hints.append(String(format: L("• The Access Key ID has %d characters; R2's has 32. Did you copy the token value instead?"), access.count))
+        }
+        if !isHex(secret.lowercased(), 64) {
+            hints.append(String(format: L("• The Secret Access Key has %d characters; R2's has 64."), secret.count))
+        }
+        return hints
+    }
+
+    /// The test file was uploaded but cannot be read at the public URL.
+    fileprivate func publicURLProblem(status: Int?, url: URL, error: Error? = nil) -> UploadProblem {
+        let what = status.map { "HTTP \($0)" } ?? (error?.localizedDescription ?? "?")
+        return UploadProblem(
+            title: String(format: L("Uploading works, but the public URL does not (%@)"), what),
+            detail: String(format: L("The test file could not be read at %@. Links would not open. The public URL has to serve this bucket: its r2.dev address (switch on “Public access” for the bucket) or a custom domain connected to it."), url.absoluteString))
     }
 }

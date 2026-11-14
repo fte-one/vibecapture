@@ -141,7 +141,7 @@ private struct UploadSettingsView: View {
     @State private var testState: TestState = .idle
     @State private var showAdvanced = false
 
-    enum TestState: Equatable { case idle, running, ok(String), failed(String) }
+    enum TestState: Equatable { case idle, running, ok(warning: UploadProblem?), failed(UploadProblem) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -202,13 +202,17 @@ private struct UploadSettingsView: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(testState == .running)
                 switch testState {
-                case .idle: EmptyView()
                 case .running: ProgressView().controlSize(.small)
-                case .ok(let text):
-                    Label(text, systemImage: "checkmark.circle.fill").foregroundStyle(Theme.accent).font(.system(size: 12))
-                case .failed(let text):
-                    Label(text, systemImage: "xmark.octagon.fill").foregroundStyle(Theme.record).font(.system(size: 12)).lineLimit(2)
+                case .ok(let warning):
+                    Label(warning == nil ? L("Connection works") : L("Uploading works"), systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(Theme.accent).font(.system(size: 12))
+                default: EmptyView()
                 }
+            }
+            switch testState {
+            case .failed(let problem): problemView(problem, symbol: "xmark.octagon.fill", color: Theme.record)
+            case .ok(let warning?): problemView(warning, symbol: "exclamationmark.triangle.fill", color: .orange)
+            default: EmptyView()
             }
             Text(L("The keys of an R2 API token (Object Read & Write) are stored in your keychain."))
                 .font(.system(size: 11)).foregroundStyle(Theme.secondary)
@@ -223,16 +227,32 @@ private struct UploadSettingsView: View {
         }
     }
 
+    /// Cause in the title, what to check below; selectable so it can be copied.
+    private func problemView(_ problem: UploadProblem, symbol: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(problem.title, systemImage: symbol).foregroundStyle(color).font(.system(size: 12, weight: .semibold))
+            if !problem.detail.isEmpty {
+                Text(problem.detail).font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.85))
+                    .padding(.leading, 21)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .textSelection(.enabled)
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(color.opacity(0.1)))
+    }
+
     private func saveAndTest() {
         uploads.accessKeyID = accessKey
         uploads.secretAccessKey = secret
         testState = .running
         Task {
             do {
-                _ = try await uploads.testConnection()
-                testState = .ok(L("Connection works"))
+                let check = try await uploads.testConnection()
+                testState = .ok(warning: check.warning)
             } catch {
-                testState = .failed(error.localizedDescription)
+                testState = .failed(uploads.explain(error))
             }
         }
     }
